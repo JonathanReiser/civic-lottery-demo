@@ -1,0 +1,11 @@
+{
+  "name": "civic-lottery-demo",
+  "version": "1.0.0",
+  "description": "Pre-commit + real-quantum-entropy + hash-chained-reveal demo for provably-fair civic selection (jury pools, housing/visa lotteries, audit sampling)",
+  "type": "module",
+  "scripts": {
+    "demo": "node demo.js",
+    "test": "node --test"
+  },
+  "license": "ISC"
+}
