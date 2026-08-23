@@ -67,8 +67,46 @@ function runAlgorithm(seed, applicantIds, numWinners) {
   return shuffled.slice(0, numWinners);
 }
 
-/** Step 1 — publish parameters in the clear, before any entropy is drawn. */
+/**
+ * Validate the parameters BEFORE they get locked into a commitment —
+ * catching a malformed lottery here, loudly, is a lot better than
+ * silently producing a nonsensical or wrong result three steps later.
+ * Throws with a specific, actionable message; never returns a value.
+ */
+function validateParams({ applicantIds, numWinners, targetTime }) {
+  if (!Array.isArray(applicantIds) || applicantIds.length === 0) {
+    throw new Error("applicantIds must be a non-empty array");
+  }
+  const seen = new Set();
+  const duplicates = new Set();
+  for (const id of applicantIds) {
+    if (typeof id !== "string" || id.trim() === "") {
+      throw new Error(`every applicantId must be a non-empty string, got: ${JSON.stringify(id)}`);
+    }
+    if (seen.has(id)) duplicates.add(id);
+    seen.add(id);
+  }
+  if (duplicates.size > 0) {
+    throw new Error(`applicantIds contains duplicates, each person can only be entered once: ${[...duplicates].join(", ")}`);
+  }
+  if (!Number.isInteger(numWinners) || numWinners <= 0) {
+    throw new Error(`numWinners must be a positive integer, got: ${numWinners}`);
+  }
+  if (numWinners > applicantIds.length) {
+    throw new Error(`numWinners (${numWinners}) cannot exceed the number of applicants (${applicantIds.length})`);
+  }
+  if (typeof targetTime !== "string" || targetTime.trim() === "") {
+    throw new Error("targetTime must be a non-empty string (an ISO timestamp or equivalent)");
+  }
+}
+
+/**
+ * Step 1 — publish parameters in the clear, before any entropy is drawn.
+ * Throws (does not silently proceed) if the parameters are malformed —
+ * see validateParams().
+ */
 export function commit(ledger, { applicantIds, numWinners, targetTime }) {
+  validateParams({ applicantIds, numWinners, targetTime });
   const payload = { applicantIds, numWinners, algorithm: ALGORITHM, targetTime };
   const commitmentHash = sha256(canonicalStringify(payload));
   return ledger.append("commit", { ...payload, commitmentHash });

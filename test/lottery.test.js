@@ -33,6 +33,61 @@ function fixedNist(hexValue, source = "test-fixed") {
 const NIST_A = "aa".repeat(64);
 const NIST_B = "bb".repeat(64);
 
+test("commit() rejects an empty applicant list", () => {
+  assert.throws(
+    () => commit(new Ledger(), { applicantIds: [], numWinners: 1, targetTime: "t" }),
+    /non-empty array/
+  );
+});
+
+test("commit() rejects a non-array applicantIds", () => {
+  assert.throws(
+    () => commit(new Ledger(), { applicantIds: "a01,a02", numWinners: 1, targetTime: "t" }),
+    /non-empty array/
+  );
+});
+
+test("commit() rejects a non-string / empty-string applicant id", () => {
+  assert.throws(
+    () => commit(new Ledger(), { applicantIds: ["a01", "", "a03"], numWinners: 1, targetTime: "t" }),
+    /non-empty string/
+  );
+  assert.throws(
+    () => commit(new Ledger(), { applicantIds: ["a01", 42, "a03"], numWinners: 1, targetTime: "t" }),
+    /non-empty string/
+  );
+});
+
+test("commit() rejects duplicate applicant ids — one entry per person", () => {
+  assert.throws(
+    () => commit(new Ledger(), { applicantIds: ["a01", "a02", "a01"], numWinners: 1, targetTime: "t" }),
+    /duplicates.*a01/
+  );
+});
+
+test("commit() rejects numWinners <= 0 or non-integer", () => {
+  assert.throws(() => commit(new Ledger(), { applicantIds: APPLICANTS, numWinners: 0, targetTime: "t" }), /positive integer/);
+  assert.throws(() => commit(new Ledger(), { applicantIds: APPLICANTS, numWinners: -2, targetTime: "t" }), /positive integer/);
+  assert.throws(() => commit(new Ledger(), { applicantIds: APPLICANTS, numWinners: 2.5, targetTime: "t" }), /positive integer/);
+});
+
+test("commit() rejects numWinners exceeding the applicant count", () => {
+  assert.throws(
+    () => commit(new Ledger(), { applicantIds: APPLICANTS, numWinners: APPLICANTS.length + 1, targetTime: "t" }),
+    /cannot exceed the number of applicants/
+  );
+});
+
+test("commit() allows numWinners exactly equal to the applicant count (everyone wins, a legitimate edge case)", () => {
+  const entry = commit(new Ledger(), { applicantIds: APPLICANTS, numWinners: APPLICANTS.length, targetTime: "t" });
+  assert.equal(entry.data.numWinners, APPLICANTS.length);
+});
+
+test("commit() rejects a missing or empty targetTime", () => {
+  assert.throws(() => commit(new Ledger(), { applicantIds: APPLICANTS, numWinners: 1, targetTime: "" }), /targetTime/);
+  assert.throws(() => commit(new Ledger(), { applicantIds: APPLICANTS, numWinners: 1, targetTime: undefined }), /targetTime/);
+});
+
 test("commit() produces a stable hash for the same payload", () => {
   const l1 = new Ledger();
   const l2 = new Ledger();

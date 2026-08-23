@@ -8,6 +8,17 @@ audit sampling. Built as a follow-on from
 (same `quantumRng.js` pattern, same real ANU QRNG entropy source), applied to
 a civic-fairness problem instead of a geopolitical simulation.
 
+## Status: working prototype, not a deployed system
+
+Everything in this repo runs for real — real hashing, real entropy, real
+tamper-detection, verified against a real (and, while building it, a really
+failing) external API. What it is *not*: legally reviewed, tested against
+real applicant PII, accessibility-audited, or run by any actual institution.
+Treat it as a demonstration of the protocol and a starting point for someone
+who wanted to build the real thing, not as something ready to hand real
+people's housing or visa applications to. See "What's real here and what's a
+stand-in" below for the specific gaps.
+
 ## The problem this solves
 
 A city picks 4 winners out of 12 applicants for something scarce (housing,
@@ -66,10 +77,12 @@ choosing favorably *before* it, too.
 
 ## What's real here and what's a stand-in
 
-- **Real**: the ANU QRNG network calls, the cryptographic hash chain, the
-  commit/draw/verify math, the tamper-detection (see `demo.js` step 4 — it
-  doesn't just claim tampering is caught, it tampers a copy and proves
-  `verify()` catches it).
+- **Real**: the ANU QRNG + NIST Beacon network calls, the cryptographic hash
+  chain, the commit/draw/verify math, input validation (`commit()` rejects
+  an empty roll, duplicate applicants, `numWinners` outside a sane range —
+  see `test/lottery.test.js`), and the tamper-detection (see `demo.js` step
+  4 — it doesn't just claim tampering is caught, it tampers a copy and
+  proves `verify()` catches it).
 - **Stand-in**: the "public ledger" is a local hash chain
   (`src/ledger.js`), not a real blockchain deployment. governance-playground
   already demonstrates real Solidity/Hardhat/Sepolia deployment elsewhere in
@@ -79,6 +92,18 @@ choosing favorably *before* it, too.
   matters (each entry's hash depends on everything before it, so altering any
   past entry is detectable) is genuine here, just backed by a local chain
   instead of a distributed one.
+- **Not attempted at all — real deployment gaps, not coding gaps**: no
+  handling of real applicant PII (a real deployment touches names,
+  addresses, SSNs — a completely different privacy/security posture than
+  this demo's fictional roster), no legal review of whether this satisfies
+  any actual jurisdiction's procurement or records-retention rules, no
+  accessibility audit (Section 508 / WCAG, relevant the moment a real
+  government agency runs this), no dispute-resolution process for a
+  rejected applicant, no rate-limit/quota handling for ANU or NIST at real
+  civic scale, no institutional partner. These aren't a backlog to work
+  through alone — they need an actual agency, actual counsel, and an actual
+  accessibility review before this touches a real person's housing
+  application.
 
 ## A real failure hit this while building it — and led to hardening it
 
@@ -108,9 +133,17 @@ PRNG. Exactly the failure mode this hardening exists for, caught live.
 ## Running it
 
 ```bash
-npm test   # 26 automated tests, no network calls, no dependencies
-npm run demo   # the real end-to-end flow, real ANU network calls
+npm test   # 44 automated tests, no network calls, no dependencies
+npm run demo   # the real end-to-end flow, real ANU + NIST network calls
 ```
+
+**Interactive, click-through version:** [The Sealed Drawing](https://claude.ai/code/artifact/f565d166-9b88-4789-ac88-e54daed32a11)
+— the same protocol (real SHA-256, a real hash chain, real tamper-detection
+you can try yourself), running in the browser via the Web Crypto API. A
+sandboxed page can't reach ANU/NIST's live servers, so it uses the browser's
+own cryptographic RNG for entropy instead of this repo's dual external
+sources — the page says so explicitly rather than implying it's the
+network-connected version.
 
 ## Files
 
@@ -122,4 +155,4 @@ npm run demo   # the real end-to-end flow, real ANU network calls
 - `src/lottery.js` — the actual commit / draw / verify protocol, combining both sources
 - `demo.js` — runs the real flow end-to-end, then proves tamper-detection
   works by tampering a copy and showing `verify()` catches it
-- `test/` — 36 tests, network-free (injected fake entropy sources)
+- `test/` — 44 tests, network-free (injected fake entropy sources)
