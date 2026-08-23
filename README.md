@@ -4,9 +4,18 @@ A small, real, working demonstration of **pre-commitment + independently-sourced
 real entropy + a public, verifiable record** — the pattern behind provably-fair
 selection for jury pools, oversubscribed housing/visa lotteries, or election
 audit sampling. Built as a follow-on from
-[governance-playground](../governance-playground)'s quantum-instinct-layer work
-(same `quantumRng.js` pattern, same real ANU QRNG entropy source), applied to
-a civic-fairness problem instead of a geopolitical simulation.
+[governance-playground](https://github.com/JonathanReiser/governance-playground)'s
+quantum-instinct-layer work (same `quantumRng.js` pattern, same real ANU QRNG
+entropy source), applied to a civic-fairness problem instead of a geopolitical
+simulation.
+
+That sibling project has since gone further — its instinct layer now has a
+Tier 2 (`python-bridge/`) that runs the same circuit on **real IBM quantum
+hardware**, verified live (`ibm_marrakesh`, real job ids). This repo's own
+entropy sourcing (ANU QRNG + NIST Beacon) is still classical hardware
+generating physically real randomness, not a QPU — a genuinely different, and
+for this use case sufficient, kind of "real." See governance-playground's
+README for the Tier 1/Tier 2 distinction spelled out precisely.
 
 ## Status: working prototype, not a deployed system
 
