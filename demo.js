@@ -39,15 +39,20 @@ async function main() {
   console.log(`Ledger entry #${commitEntry.index}, recorded at ${commitEntry.timestamp}`);
 
   line();
-  console.log("STEP 2 — DRAW (real entropy pulled live from ANU's QRNG server)");
+  console.log("STEP 2 — DRAW (real entropy pulled live from TWO independent sources)");
   line();
   const drawEntry = await draw(ledger, commitEntry);
-  console.log("Raw draws pulled:");
+  console.log("ANU QRNG draws:");
   for (const d of drawEntry.data.rawDraws) {
     console.log(`  value=${d.value.toString().padStart(5)}  source=${d.source}${d.detail ? `  (${d.detail})` : ""}`);
   }
-  const realCount = drawEntry.data.rawDraws.filter((d) => d.source === "anu-qrng").length;
-  console.log(`\n${realCount}/${drawEntry.data.rawDraws.length} draws sourced from real quantum entropy (rest, if any, honestly-labeled PRNG fallback).`);
+  const n = drawEntry.data.nistDraw;
+  console.log(`\nNIST beacon pulse:`);
+  console.log(`  value=${n.value.slice(0, 16)}…  source=${n.source}${n.pulseIndex ? `  (pulse #${n.pulseIndex})` : ""}${n.detail ? `  (${n.detail})` : ""}`);
+
+  const anuReal = drawEntry.data.rawDraws.filter((d) => d.source === "anu-qrng").length;
+  const nistReal = n.source === "nist-beacon" ? 1 : 0;
+  console.log(`\n${anuReal}/${drawEntry.data.rawDraws.length} ANU draws real, NIST ${nistReal ? "real" : "fallback"} — both sources contribute to the seed, neither alone controls it.`);
   console.log(`Combined seed: ${drawEntry.data.seed}`);
   console.log(`Winners: ${drawEntry.data.winners.join(", ")}`);
 

@@ -20,9 +20,18 @@
 import { createHash } from "node:crypto";
 import { canonicalStringify } from "./canonicalJson.js";
 import { quantumRandomUint16 } from "./quantumRng.js";
+import { nistRandomHex } from "./nistBeacon.js";
 
-const ALGORITHM = "fisher-yates-mulberry32-v1";
-const SEED_DRAWS = 4; // independent real-entropy draws combined into one seed
+const ALGORITHM = "fisher-yates-mulberry32-v2-multisource";
+const SEED_DRAWS = 4; // independent ANU draws combined into one seed
+
+// Combine ANU's uint16 draws with NIST's beacon value into one seed
+// material array — kept as a named function (not inlined) because BOTH
+// draw() and verify() must compute this identically, from whichever raw
+// values are on record, or an honest draw would fail its own verification.
+function seedMaterial(anuDraws, nistValue) {
+  return [...anuDraws.map((d) => d.value), nistValue];
+}
 
 function sha256(str) {
   return createHash("sha256").update(str).digest("hex");
@@ -66,22 +75,30 @@ export function commit(ledger, { applicantIds, numWinners, targetTime }) {
 }
 
 /**
- * Step 2 — at (or after) targetTime, pull real entropy and run the
- * (now-locked-in) deterministic algorithm. rngImpl is injectable so the
- * demo/tests can force the fallback path deterministically without
- * needing the network — production use omits it and gets the real
- * quantumRandomUint16 default.
+ * Step 2 — at (or after) targetTime, pull real entropy from TWO
+ * independent sources and run the (now-locked-in) deterministic
+ * algorithm. Neither source alone controls the seed: if ANU is down,
+ * NIST's real pulse still grounds the draw in genuine entropy rather
+ * than falling all the way to a plain PRNG; same in reverse (see
+ * nistBeacon.js's header for why this matters, motivated by a real ANU
+ * outage hit while building the single-source version of this).
+ *
+ * anuImpl/nistImpl are injectable so the demo/tests can force either
+ * provider's fallback path deterministically without touching the
+ * network — production use omits both and gets the real defaults.
  */
-export async function draw(ledger, commitEntry, rngImpl = quantumRandomUint16) {
-  const draws = [];
-  for (let i = 0; i < SEED_DRAWS; i++) draws.push(await rngImpl());
+export async function draw(ledger, commitEntry, anuImpl = quantumRandomUint16, nistImpl = nistRandomHex) {
+  const anuDraws = [];
+  for (let i = 0; i < SEED_DRAWS; i++) anuDraws.push(await anuImpl());
+  const nistDraw = await nistImpl();
 
-  const seed = parseInt(sha256(canonicalStringify(draws.map((d) => d.value))).slice(0, 8), 16);
+  const seed = parseInt(sha256(canonicalStringify(seedMaterial(anuDraws, nistDraw.value))).slice(0, 8), 16);
   const winners = runAlgorithm(seed, commitEntry.data.applicantIds, commitEntry.data.numWinners);
 
   return ledger.append("draw", {
     commitmentHash: commitEntry.data.commitmentHash,
-    rawDraws: draws,
+    rawDraws: anuDraws,
+    nistDraw,
     seed,
     winners,
   });
@@ -118,9 +135,15 @@ export function verify(ledger) {
     return { valid: false, reason: "draw entry references a different commitment than what's on record" };
   }
 
-  const expectedSeed = parseInt(sha256(canonicalStringify(drawEntry.data.rawDraws.map((d) => d.value))).slice(0, 8), 16);
+  if (!drawEntry.data.nistDraw) {
+    return { valid: false, reason: "draw entry is missing its NIST beacon contribution" };
+  }
+  const expectedSeed = parseInt(
+    sha256(canonicalStringify(seedMaterial(drawEntry.data.rawDraws, drawEntry.data.nistDraw.value))).slice(0, 8),
+    16
+  );
   if (expectedSeed !== drawEntry.data.seed) {
-    return { valid: false, reason: "recorded seed doesn't match what the recorded raw QRNG draws actually hash to" };
+    return { valid: false, reason: "recorded seed doesn't match what the recorded raw ANU + NIST entropy actually hashes to" };
   }
 
   const expectedWinners = runAlgorithm(expectedSeed, commitEntry.data.applicantIds, commitEntry.data.numWinners);

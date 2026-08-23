@@ -80,16 +80,30 @@ choosing favorably *before* it, too.
   past entry is detectable) is genuine here, just backed by a local chain
   instead of a distributed one.
 
-## A real failure hit this while building it
+## A real failure hit this while building it — and led to hardening it
 
 Running `demo.js` live, only 1 of 4 entropy draws actually reached ANU's
 server — the other 3 got `HTTP 500` and fell back to a PRNG, honestly labeled
 `math-random-fallback` in the output, not silently swapped. Confirmed via
 direct `curl` that ANU's API was returning 500 consistently at the time
 (including after a 20s cooldown), not a bug in this code. The demo still
-produced a fully valid, independently verifiable result — this is the
-fallback design working exactly as intended under a real, unplanned failure,
-not a hypothetical one.
+produced a fully valid, independently verifiable result — the fallback design
+working exactly as intended under a real, unplanned failure, not a
+hypothetical one.
+
+That outage is also the reason `src/nistBeacon.js` exists: relying on exactly
+one external entropy provider means that provider's downtime fully controls
+the fallback rate. The seed is now combined from **two independent real
+sources** — ANU's QRNG and [NIST's public Randomness
+Beacon](https://beacon.nist.gov/) (confirmed live 2026-08-23: a real 512-bit
+value every 60 seconds, CORS-open, and — worth noting — already itself a
+hash-chained public ledger, each pulse referencing the previous one,
+government-run instead of self-hosted). Neither source alone controls the
+final seed. Proof this isn't hypothetical: rerunning the demo after adding
+NIST as a second source, **ANU was still down** (1/4 real again) — but NIST
+was up and contributed a real pulse (`#1914796`), so the draw stayed grounded
+in genuine external entropy instead of falling all the way back to a plain
+PRNG. Exactly the failure mode this hardening exists for, caught live.
 
 ## Running it
 
@@ -100,11 +114,12 @@ npm run demo   # the real end-to-end flow, real ANU network calls
 
 ## Files
 
-- `src/quantumRng.js` — real entropy source (ANU QRNG + honest PRNG fallback)
+- `src/quantumRng.js` — real entropy source #1 (ANU QRNG + honest PRNG fallback)
+- `src/nistBeacon.js` — real entropy source #2 (NIST Randomness Beacon + honest PRNG fallback)
 - `src/canonicalJson.js` — deterministic serialization (hashing needs this;
   plain `JSON.stringify` key-ordering isn't guaranteed stable across machines)
 - `src/ledger.js` — hash-chained append-only log, stands in for "on-chain"
-- `src/lottery.js` — the actual commit / draw / verify protocol
+- `src/lottery.js` — the actual commit / draw / verify protocol, combining both sources
 - `demo.js` — runs the real flow end-to-end, then proves tamper-detection
   works by tampering a copy and showing `verify()` catches it
-- `test/` — 26 tests, network-free (injected fake entropy sources)
+- `test/` — 36 tests, network-free (injected fake entropy sources)
