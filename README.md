@@ -17,6 +17,14 @@ generating physically real randomness, not a QPU — a genuinely different, and
 for this use case sufficient, kind of "real." See governance-playground's
 README for the Tier 1/Tier 2 distinction spelled out precisely.
 
+It has since acquired a sibling of its own:
+[civic-budget-demo](https://github.com/JonathanReiser/civic-budget-demo)
+reuses this repo's `ledger.js`, `canonicalJson.js`, `quantumRng.js` and
+`nistBeacon.js` verbatim, and applies them to a *decision* rather than a
+selection — a participatory budget round, where the interesting problem
+turns out not to be proving the count was honest but showing what the
+easy-to-understand counting rule costs in fairness.
+
 ## Status: working prototype, not a deployed system
 
 Everything in this repo runs for real — real hashing, real entropy, real
